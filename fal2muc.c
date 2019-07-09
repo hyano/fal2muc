@@ -129,7 +129,7 @@ uint32_t get_word(const uint8_t *p)
     return (uint32_t)p[0] + ((uint32_t)p[1] << 8);
 }
 
-void dump_inst(FILE *fp, uint32_t num, uint8_t *data, uint32_t offset)
+void dump_inst(FILE *fp, uint32_t num, const uint8_t *data, uint32_t offset)
 {
     const unsigned char *d = data;
     uint32_t o = offset;
@@ -145,7 +145,7 @@ void dump_inst(FILE *fp, uint32_t num, uint8_t *data, uint32_t offset)
     fprintf(fp, "\n");
 }
 
-void convert_inst(FILE *fp, unsigned char *data, uint32_t offset)
+void convert_inst(FILE *fp, const uint8_t *data, uint32_t offset)
 {
     uint32_t i;
     uint32_t n = (get_word(data) - offset) / 0x0020;
@@ -441,10 +441,10 @@ void convert_music(FILE *fp, uint32_t ch, SOUND_TYPE sound_type, const char *chn
                 }
                 break;
             case 0xf1: DUMMY(1);
-                ll -= fprintf(fp, "v%d", d[o++]);
+                ll -= fprintf(fp, "v%u", d[o++]);
                 break;
             case 0xf2: DUMMY(1);
-                ll -= fprintf(fp, "q%d", d[o++]);
+                ll -= fprintf(fp, "q%u", d[o++]);
                 break;
             case 0xf3: DUMMY(1);
                 ll -= fprintf(fp, "D%d", (char)d[o++]);
@@ -493,7 +493,7 @@ void convert_music(FILE *fp, uint32_t ch, SOUND_TYPE sound_type, const char *chn
                 break;
             case 0xf6:
                 DBG("{%04x:%04x}", o - 1, o + 4 - get_word(&d[o + 2]));
-                ll -= fprintf(fp, "]%d", d[o++]);
+                ll -= fprintf(fp, "]%u", d[o++]);
                 ssg_mixer = 0xff;
                 ssg_noise = 0xff;
                 o++;
