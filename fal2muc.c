@@ -134,7 +134,7 @@ void dump_inst(FILE *fp, uint32_t num, const uint8_t *data, uint32_t offset)
     const unsigned char *d = data;
     uint32_t o = offset;
 
-    fprintf(fp, "  @%%%03u\n", num);
+    fprintf(fp, "  @%%%03u\n", num + 1);
     fprintf(fp, "  $%03X,$%03X,$%03X,$%03X\n", d[o], d[o+1], d[o+2], d[o+3]); o += 4; // DT/ML
     fprintf(fp, "  $%03X,$%03X,$%03X,$%03X\n", d[o], d[o+1], d[o+2], d[o+3]); o += 4; // TL
     fprintf(fp, "  $%03X,$%03X,$%03X,$%03X\n", d[o], d[o+1], d[o+2], d[o+3]); o += 4; // KS/AR
@@ -422,7 +422,7 @@ void convert_music(FILE *fp, uint32_t ch, SOUND_TYPE sound_type, const char *chn
             case 0xf0:
                 if (sound_type & SOUND_TYPE_FM)
                 {
-                    ll -= fprintf(fp, "@%u", (uint32_t)d[o++]);
+                    ll -= fprintf(fp, "@%u", (uint32_t)d[o++] + 1);
                 }
                 else if (sound_type & SOUND_TYPE_SSG)
                 {
