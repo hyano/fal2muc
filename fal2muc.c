@@ -709,7 +709,7 @@ DRIVER_TYPE detect_driver_type(unsigned char *data)
             else
             {
                 fprintf(stderr, "Unknown driver type: ch9:%04x [%02x %02x %02x %02x]\n",
-                        ch9, data[ch9 + 0], data[ch9 + 3], data[ch9 + 2], data[ch9 + 3]);
+                        ch9, data[ch9 + 0], data[ch9 + 1], data[ch9 + 2], data[ch9 + 3]);
                 ret = DRIVER_TYPE_UNKNOWN;
             }
         }
