@@ -40,6 +40,7 @@ typedef enum
     DRIVER_TYPE_UNKNOWN,
     DRIVER_TYPE_OPN,
     DRIVER_TYPE_OPNA,
+    DRIVER_TYPE_OPNA_RHYTHM,
     DRIVER_TYPE_OPNA_VA,
     DRIVER_TYPE_OPNA_MONO,
     DRIVER_TYPE_X1_OPM,
@@ -53,6 +54,7 @@ typedef enum
     SOUND_TYPE_SSG		= 0x0002,
     SOUND_TYPE_STEREO	= 0x0004,
     SOUND_TYPE_OPM		= 0x0008,
+    SOUND_TYPE_RHYTHM	= 0x0010,
     SOUND_TYPE_DUMMY	= 0x8000,
 } SOUND_TYPE;
 
@@ -360,10 +362,14 @@ void convert_music(FILE *fp, uint32_t ch, SOUND_TYPE sound_type, const char *chn
         0x4b, 0x08, 0x47, 0x06, 0x47, 0x06, 0x4d, 0x06,
         0x20, 0x1e, 0x1d, 0x1a, 0x18, 0x17, 0x14, 0x12,
     };
+    uint8_t rhy_vol[6] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
     const uint8_t *d = data;
     uint32_t o = get_word(&data[ch * 2]);
     uint32_t end;
     uint32_t c;
+    uint32_t rhy_comb;
     uint32_t prev_oct, oct, note, len;
     uint32_t ssg_mixer;
     uint32_t ssg_noise;
@@ -421,7 +427,12 @@ void convert_music(FILE *fp, uint32_t ch, SOUND_TYPE sound_type, const char *chn
             switch (c)
             {
             case 0xf0:
-                if (sound_type & SOUND_TYPE_FM)
+                if ((sound_type & SOUND_TYPE_RHYTHM) && ch == 9)
+                {
+                    rhy_comb = (uint32_t)d[o++] + 1;
+                    ll -= fprintf(fp, "@%u", rhy_comb);
+                }
+                else if (sound_type & SOUND_TYPE_FM)
                 {
                     ll -= fprintf(fp, "@%u", (uint32_t)d[o++] + 1);
                 }
@@ -442,7 +453,25 @@ void convert_music(FILE *fp, uint32_t ch, SOUND_TYPE sound_type, const char *chn
                 }
                 break;
             case 0xf1: DUMMY(1);
-                ll -= fprintf(fp, "v%u", d[o++]);
+                if ((sound_type & DRIVER_TYPE_OPNA_RHYTHM) && ch == 9)
+                {
+                    int i;
+                    c = d[o++];
+                    for (i = 0; i < 6; i++)
+                    {
+                        if (rhy_comb & (1 << i))
+                        {
+                            rhy_vol[i] |= (c << 1) + 1;
+                        }
+                    }
+                    ll -= fprintf(fp, "v63,%d,%d,%d,%d,%d,%d",
+                                  rhy_vol[0], rhy_vol[1], rhy_vol[2],
+                                  rhy_vol[3], rhy_vol[4], rhy_vol[5]);
+                }
+                else
+                {
+                    ll -= fprintf(fp, "v%u", d[o++]);
+                }
                 break;
             case 0xf2: DUMMY(1);
                 ll -= fprintf(fp, "q%u", d[o++]);
@@ -706,6 +735,10 @@ DRIVER_TYPE detect_driver_type(unsigned char *data)
             {
                 ret = DRIVER_TYPE_OPNA;
             }
+            else if (data[ch9] == 0xf0)
+            {
+                ret = DRIVER_TYPE_OPNA_RHYTHM;
+            }
             else
             {
                 fprintf(stderr, "Unknown driver type: ch9:%04x [%02x %02x %02x %02x]\n",
@@ -735,6 +768,7 @@ void help(void)
     fprintf(stderr, "\t\t          Data          / Playback\n");
     fprintf(stderr, "\t\t  opn   = OPN           / OPN\n");
     fprintf(stderr, "\t\t  opna  = OPNA          / OPNA\n");
+    fprintf(stderr, "\t\t  opnar = OPNA(RHYTHM)  / OPNA\n");
     fprintf(stderr, "\t\t  va    = OPNA(PC-88VA) / OPNA\n");
     fprintf(stderr, "\t\t  mono  = OPNA          / OPN\n");
     fprintf(stderr, "\t\t  x1opm = OPM+PSG(X1)   / OPNA\n");
@@ -748,7 +782,7 @@ int main(int argc, char *argv[])
     FILE *fp;
     uint8_t *data = &g_data[0x0000];
     uint32_t ch;
-    const char *chname[] = {"A", "B", "C", "D", "E", "F", "H", "I", "J"};
+    const char *chname[] = {"A", "B", "C", "D", "E", "F", "H", "I", "J", "G"};
     typedef enum
     {
         CH_ASSIGN_FM0 = 0,
@@ -774,6 +808,7 @@ int main(int argc, char *argv[])
     } driver_type_table[] = {
         {"opn",		DRIVER_TYPE_OPN			},
         {"opna",	DRIVER_TYPE_OPNA		},
+        {"opnar",	DRIVER_TYPE_OPNA_RHYTHM	},
         {"va",		DRIVER_TYPE_OPNA_VA		},
         {"mono",	DRIVER_TYPE_OPNA_MONO	},
         {"x1opm",	DRIVER_TYPE_X1_OPM		},
@@ -887,6 +922,15 @@ int main(int argc, char *argv[])
         ch_info[1].assign = CH_ASSIGN_FM0;
         ch_info[2].assign = CH_ASSIGN_SSG;
         break;
+    case DRIVER_TYPE_OPNA_RHYTHM:
+        inst_offset = 0x0020;
+        ch_info[0].type = SOUND_TYPE_FM | SOUND_TYPE_STEREO | SOUND_TYPE_RHYTHM;
+        ch_info[1].type = SOUND_TYPE_FM | SOUND_TYPE_STEREO;
+        ch_info[2].type = SOUND_TYPE_SSG;
+        ch_info[0].assign = CH_ASSIGN_FM3;
+        ch_info[1].assign = CH_ASSIGN_FM0;
+        ch_info[2].assign = CH_ASSIGN_SSG;
+        break;
     case DRIVER_TYPE_OPNA_VA:
         inst_offset = 0x0020;
         ch_info[0].type = SOUND_TYPE_FM | SOUND_TYPE_STEREO;
@@ -977,6 +1021,14 @@ int main(int argc, char *argv[])
                 chname[ch_info[ch / 3].assign + (ch % 3)],
                 data, g_loop_flag, g_loop_nest);
         }
+    }
+    if (ch_info[0].type & SOUND_TYPE_RHYTHM)
+    {
+        convert_music(
+            fp,
+            9, ch_info[0].type,
+            chname[9],
+            data, g_loop_flag, g_loop_nest);
     }
 
     /* Control tempo in X1 PSG data */
